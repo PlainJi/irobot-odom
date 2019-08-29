@@ -18,13 +18,17 @@
 
 using namespace std;
 using namespace boost::asio;
-
+//send
+// $+12345,+12345\n
+//recv
+// #+00001,+00001\n
+// #+01234\n
 
 void cmd_velCallback(const geometry_msgs::Twist &twist_aux)
 {
-    speed_buf.vx = twist_aux.linear.x;
-    speed_buf.vy = twist_aux.linear.y;
-    speed_buf.vth = twist_aux.angular.z;
+    //speed_buf.vx = twist_aux.linear.x;
+    //speed_buf.vy = twist_aux.linear.y;
+    //speed_buf.vth = twist_aux.angular.z;
 }
 
 
@@ -40,7 +44,7 @@ int main(int argc, char** argv)
 {
     io_service iosev;
     serial_port sp(iosev, "/dev/ttyUSB0");
-    sp.set_option(serial_port::baud_rate(115200));
+    sp.set_option(serial_port::baud_rate(460800));
     sp.set_option(serial_port::flow_control(serial_port::flow_control::none));
     sp.set_option(serial_port::parity(serial_port::parity::none));
     sp.set_option(serial_port::stop_bits(serial_port::stop_bits::one));
@@ -58,23 +62,26 @@ int main(int argc, char** argv)
     current_time = ros::Time::now();
     last_time = ros::Time::now();
 
-    while(ros::ok())
-    {
+    int cnt = 0;
+
+    while(ros::ok()) {
         current_time = ros::Time::now();
 
-        read(sp, buffer(speed_buf_rev));
+	boost::asio::streambuf temp;
+	read_until(sp, temp, '\n');
+	char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
+	std::cout << "recv: " << p;
 
-        if(CRC_verify(speed_buf_rev))
-        {
-             vx  = speed_buf_rev.vx;
-             vy  = speed_buf_rev.vy;
-             vth = speed_buf_rev.vth;
+        if (p[0] == '#') {
+             //vx  = speed_buf_rev.vx;
+             //vy  = speed_buf_rev.vy;
+             //vth = speed_buf_rev.vth;
 
-             ROS_INFO("vx  is %2f", vx);
-             ROS_INFO("vy  is %2f", vy);
-             ROS_INFO("vth is %2f", vth);
+             //ROS_INFO("vx  is %2f", vx);
+             //ROS_INFO("vy  is %2f", vy);
+             //ROS_INFO("vth is %2f", vth);
 
-             /**compute odometry in a typical way given the velocities of the robot**/
+             //compute odometry in a typical way given the velocities of the robot
              double dt = (current_time - last_time).toSec();
              double delta_x = (vx * cos(th) - vy * sin(th)) * dt;
              double delta_y = (vx * sin(th) + vy * cos(th)) * dt;
@@ -84,7 +91,7 @@ int main(int argc, char** argv)
              y += delta_y;
              th += delta_th;
 
-             /***********first, we'll publish the transform over tf*************/
+             //first, we'll publish the transform over tf
              geometry_msgs::TransformStamped odom_trans;
              odom_trans.header.stamp = current_time;
              odom_trans.header.frame_id = "odom";
@@ -99,7 +106,7 @@ int main(int argc, char** argv)
              odom_broadcaster.sendTransform(odom_trans);
 
 
-             /*********next, we'll publish the odometry message over ROS*******/
+             //next, we'll publish the odometry message over ROS
              nav_msgs::Odometry odom;
              odom.header.stamp = current_time;
              odom.header.frame_id = "odom";
@@ -122,7 +129,7 @@ int main(int argc, char** argv)
              odom_pub.publish(odom);
 
 
-             /*******************publish polygon message***********************/
+             //publish polygon message
              geometry_msgs::Point32 point[4];
              // coordinates described in base_link frame
              point[0].x = -0.39;  point[0].y = -0.31;
@@ -139,13 +146,13 @@ int main(int argc, char** argv)
              poly.polygon.points.push_back(point[3]);
 
              poly_pub.publish(poly);
-        }
-        else
-		ROS_INFO("Serial port communication failed!");
+        } else
+            ROS_INFO("Serial port communication failed!");
   
-
-        write(sp, buffer(speed_buf, buffer_length));
-
+	sprintf(p, "$+%05d,-%05d\n", cnt, cnt);
+	cnt++;
+	std::cout << "send: " << p;
+        write(sp, temp);
         last_time = current_time;
 
         ros::spinOnce();
