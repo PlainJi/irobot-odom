@@ -16,61 +16,58 @@
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 
-using namespace std;
-using namespace boost::asio;
-//send
+// send the excepted number of pulses of the left&right wheel
 // $+12345,+12345\n
-//recv
+
+// recv the actual number of pulses of the left&right wheel
 // #+00001,+00001\n
+// recv the current battery voltage
 // #+01234\n
 
-void cmd_velCallback(const geometry_msgs::Twist &twist_aux)
-{
-    //speed_buf.vx = twist_aux.linear.x;
-    //speed_buf.vy = twist_aux.linear.y;
-    //speed_buf.vth = twist_aux.angular.z;
+#define WHEEL_BASE  (0.15f)                     //轮距 m
+#define PERIMITER   (0.206f)			        //轮子周长 m
+#define UNIT        (512*27/PERIMITER)	        //每米对应的编码器脉冲数
+#define SAMPLE_TIME (0.005f)			        //编码器采样周期 5ms
+
+using namespace std;
+using namespace boost::asio;
+
+void cmd_velCallback(const geometry_msgs::Twist &twist_aux) {
+    printf("callback\n");
+    // 速度
+    int DesireL = twist_aux.linear.x * UNIT;
+    int DesireR = twist_aux.linear.x * UNIT;
+    // 角速度 rad/s
+    // 本次要转动的角度 theta = DesireAngVelo * SAMPLE_TIME
+    // Theta = dis / base   dis = theta * base
+    // 每个轮子移动距离 d = dis/2 = theta * base / 2
+    int DiffDis = twist_aux.angular.z * SAMPLE_TIME * WHEEL_BASE / 2.0 * UNIT;
+    DesireL -= DiffDis;
+    DesireR += DiffDis;
+
+    boost::asio::streambuf temp;
+	char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
+    sprintf(p, "$+%05d,-%05d\n", DesireL, DesireR);
+    //write(sp, temp);
+    std::cout << "send: " << p;
 }
 
-
-double x = 0.0;
-double y = 0.0;
-double th = 0.0;
-double vx = 0.0;
-double vy = 0.0;
-double vth = 0.0;
-double dt = 0.0;
-
-int main(int argc, char** argv)
-{
-    io_service iosev;
-    serial_port sp(iosev, "/dev/ttyUSB0");
-    sp.set_option(serial_port::baud_rate(460800));
-    sp.set_option(serial_port::flow_control(serial_port::flow_control::none));
-    sp.set_option(serial_port::parity(serial_port::parity::none));
-    sp.set_option(serial_port::stop_bits(serial_port::stop_bits::one));
-    sp.set_option(serial_port::character_size(8));
-
-    ros::init(argc, argv, "base_controller");
-    ros::NodeHandle n;
-
-    ros::Subscriber cmd_vel_sub = n.subscribe("cmd_vel", 100, cmd_velCallback);
-    ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 10);
-    tf::TransformBroadcaster odom_broadcaster;
-    ros::Publisher poly_pub = n.advertise<geometry_msgs::PolygonStamped>("polygon",10);
-
-    ros::Time current_time, last_time;
-    current_time = ros::Time::now();
-    last_time = ros::Time::now();
-
+void SerialRecvTask() {
     int cnt = 0;
-
+    double x = 0.0;
+    double y = 0.0;
+    double th = 0.0;
+    double vx = 0.0;
+    double vy = 0.0;
+    double vth = 0.0;
+    double dt = 0.0;
     while(ros::ok()) {
         current_time = ros::Time::now();
 
-	boost::asio::streambuf temp;
-	read_until(sp, temp, '\n');
-	char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
-	std::cout << "recv: " << p;
+	    boost::asio::streambuf temp;
+	    read_until(sp, temp, '\n');
+	    char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
+	    std::cout << "recv: " << p;
 
         if (p[0] == '#') {
              //vx  = speed_buf_rev.vx;
@@ -148,16 +145,36 @@ int main(int argc, char** argv)
              poly_pub.publish(poly);
         } else
             ROS_INFO("Serial port communication failed!");
-  
-	sprintf(p, "$+%05d,-%05d\n", cnt, cnt);
-	cnt++;
-	std::cout << "send: " << p;
-        write(sp, temp);
         last_time = current_time;
 
         ros::spinOnce();
     }   // end-while
 
     iosev.run();
+}
+
+int main(int argc, char** argv)
+{
+    io_service iosev;
+    serial_port sp(iosev, "/dev/ttyUSB0");
+    sp.set_option(serial_port::baud_rate(460800));
+    sp.set_option(serial_port::flow_control(serial_port::flow_control::none));
+    sp.set_option(serial_port::parity(serial_port::parity::none));
+    sp.set_option(serial_port::stop_bits(serial_port::stop_bits::one));
+    sp.set_option(serial_port::character_size(8));
+
+    ros::init(argc, argv, "base_controller");
+    ros::NodeHandle n;
+
+    ros::Subscriber cmd_vel_sub = n.subscribe("/cmd_vel", 10, cmd_velCallback);
+    ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("/odom", 10);
+    tf::TransformBroadcaster odom_broadcaster;
+    ros::Publisher poly_pub = n.advertise<geometry_msgs::PolygonStamped>("/polygon",10);
+
+    ros::Time current_time, last_time;
+    current_time = ros::Time::now();
+    last_time = ros::Time::now();
+
+    
 
 }
