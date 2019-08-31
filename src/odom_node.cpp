@@ -1,12 +1,13 @@
-#include <iostream>
-#include <iomanip>
 #include <math.h>
+#include <ros/ros.h>
+#include <std_msgs/String.h>
 
+#include <iostream>
+#include <thread>
+#include <iomanip>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
-#include <ros/ros.h>
-#include <std_msgs/String.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -31,6 +32,9 @@
 
 using namespace std;
 using namespace boost::asio;
+io_service iosev;
+serial_port sp(iosev, "/dev/ttyUSB0");
+std::thread recv_task;
 
 void cmd_velCallback(const geometry_msgs::Twist &twist_aux) {
     printf("callback\n");
@@ -51,7 +55,7 @@ void cmd_velCallback(const geometry_msgs::Twist &twist_aux) {
     //write(sp, temp);
     std::cout << "send: " << p;
 }
-
+/*
 void SerialRecvTask() {
     int cnt = 0;
     double x = 0.0;
@@ -61,6 +65,9 @@ void SerialRecvTask() {
     double vy = 0.0;
     double vth = 0.0;
     double dt = 0.0;
+    ros::Time current_time = ros::Time::now();
+    ros::Time last_time = ros::Time::now();
+
     while(ros::ok()) {
         current_time = ros::Time::now();
 
@@ -124,39 +131,15 @@ void SerialRecvTask() {
              odom.twist.twist.angular.z = vth;
 
              odom_pub.publish(odom);
-
-
-             //publish polygon message
-             geometry_msgs::Point32 point[4];
-             // coordinates described in base_link frame
-             point[0].x = -0.39;  point[0].y = -0.31;
-             point[1].x = 0.39;   point[1].y = -0.31;
-             point[2].x = 0.39;   point[2].y = 0.31;
-             point[3].x = -0.39;  point[3].y = 0.31;
-
-             geometry_msgs::PolygonStamped poly;
-             poly.header.stamp = current_time;
-             poly.header.frame_id = "base_link";
-             poly.polygon.points.push_back(point[0]);
-             poly.polygon.points.push_back(point[1]);
-             poly.polygon.points.push_back(point[2]);
-             poly.polygon.points.push_back(point[3]);
-
-             poly_pub.publish(poly);
         } else
             ROS_INFO("Serial port communication failed!");
         last_time = current_time;
-
-        ros::spinOnce();
     }   // end-while
-
-    iosev.run();
 }
+*/
 
 int main(int argc, char** argv)
 {
-    io_service iosev;
-    serial_port sp(iosev, "/dev/ttyUSB0");
     sp.set_option(serial_port::baud_rate(460800));
     sp.set_option(serial_port::flow_control(serial_port::flow_control::none));
     sp.set_option(serial_port::parity(serial_port::parity::none));
@@ -165,16 +148,39 @@ int main(int argc, char** argv)
 
     ros::init(argc, argv, "base_controller");
     ros::NodeHandle n;
-
-    ros::Subscriber cmd_vel_sub = n.subscribe("/cmd_vel", 10, cmd_velCallback);
-    ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("/odom", 10);
+    ros::Subscriber cmd_vel_sub;
+    ros::Publisher poly_pub;
+    ros::Publisher odom_pub;
     tf::TransformBroadcaster odom_broadcaster;
-    ros::Publisher poly_pub = n.advertise<geometry_msgs::PolygonStamped>("/polygon",10);
 
-    ros::Time current_time, last_time;
-    current_time = ros::Time::now();
-    last_time = ros::Time::now();
+    cmd_vel_sub = n.subscribe("/cmd_vel", 10, cmd_velCallback);
+    odom_pub = n.advertise<nav_msgs::Odometry>("/odom", 10);
+    poly_pub = n.advertise<geometry_msgs::PolygonStamped>("/polygon",10);
+    ros::Time current_time;
 
-    
+    //recv_task = std::thread(std::bind(&SerialRecvTask));
 
+    while(ros::ok()) {
+        //publish polygon message
+        geometry_msgs::Point32 point[4];
+        // coordinates described in base_link frame
+        point[0].x = -0.39;  point[0].y = -0.31;
+        point[1].x = 0.39;   point[1].y = -0.31;
+        point[2].x = 0.39;   point[2].y = 0.31;
+        point[3].x = -0.39;  point[3].y = 0.31;
+
+        geometry_msgs::PolygonStamped poly;
+        current_time = ros::Time::now();
+        poly.header.stamp = current_time;
+        poly.header.frame_id = "base_link";
+        poly.polygon.points.push_back(point[0]);
+        poly.polygon.points.push_back(point[1]);
+        poly.polygon.points.push_back(point[2]);
+        poly.polygon.points.push_back(point[3]);
+        poly_pub.publish(poly);
+
+        ros::spinOnce();
+    }
+
+    iosev.run();
 }
