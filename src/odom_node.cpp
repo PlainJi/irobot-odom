@@ -1,3 +1,5 @@
+#include "stream.h"
+
 #include <math.h>
 #include <ros/ros.h>
 #include <std_msgs/String.h>
@@ -31,8 +33,9 @@
 #define SAMPLE_TIME (0.005f)			        //编码器采样周期 5ms
 
 using namespace std;
-using namespace boost::asio;
-std::shared_ptr<serial_port> sp_;
+std::shared_ptr<Stream> sp;
+char send_buf[32];
+char recv_buf[32];
 
 ros::Subscriber vel_sub_;
 ros::Publisher poly_pub_;
@@ -49,44 +52,34 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
     int DiffDis = twist_aux.angular.z * SAMPLE_TIME * WHEEL_BASE / 2.0 * UNIT;
     DesireL -= DiffDis;
     DesireR += DiffDis;
-
-    boost::asio::streambuf temp;
-    char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
-    sprintf(p, "$%+06d,%+06d\n", DesireL, DesireR);
-    write(*sp_, temp);
-    std::cout << "send: " << p;
+    memset(send_buf, 0, sizeof(send_buf));
+    sprintf(send_buf, "$%+06d,%+06d\n", DesireL, DesireR);
+    sp->Write(reinterpret_cast<uint8_t*>(send_buf), strlen(send_buf));
+    ROS_INFO("send: %s", send_buf);
 }
 
 void SerialRecvTask() {
-    int cnt = 0;
-    double x = 0.0;
-    double y = 0.0;
-    double th = 0.0;
-    double vx = 0.0;
-    double vy = 0.0;
-    double vth = 0.0;
-    double dt = 0.0;
     tf::TransformBroadcaster odom_broadcaster_;
 
     ros::Time current_time = ros::Time::now();
     ros::Time last_time = ros::Time::now();
     while(ros::ok()) {
-        boost::asio::streambuf temp;
-        read_until(*sp_, temp, '\n');
-        char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
+        memset(recv_buf, 0, sizeof(recv_buf));
+        int ret = sp->ReadLine(reinterpret_cast<uint8_t*>(recv_buf), sizeof(recv_buf));
 
-        if (p[0] == '#') {
+        if (recv_buf[0] == '#') {
             int l = 0, r = 0, voltage = 0;
-            if (15 == strlen(p)) {
-                sscanf(p, "#%d,%d\n", &l, &r);
+            if (15 == ret) {
+                sscanf(recv_buf, "#%d,%d\n", &l, &r);
                 ROS_INFO("Encoder Report: left=%d right=%d", l, r);
-            } else if (22 == strlen(p)) {
-                sscanf(p, "#%d,%d\n#%d", &l, &r, &voltage);
-                ROS_INFO("Encoder Report: left=%d right=%d", l, r);
+            } else if (8 == ret) {
+                sscanf(recv_buf, "#%d\n", &voltage);
                 ROS_INFO("Voltage Report: %.2fV", voltage/100.0);
+            } else {
+                ROS_INFO("Serial port communication failed! %s", recv_buf);
             }
         } else {
-            ROS_INFO("Serial port communication failed! %s", p);
+            ROS_INFO("Serial port communication failed! %s", recv_buf);
         }
     }   // end-while
 }
@@ -117,16 +110,8 @@ void PolyPubTask() {
     }
 }
 
-int main(int argc, char** argv)
-{
-    io_service iosev_;
-    sp_.reset(new serial_port(iosev_, "/dev/ttyTHS1"));
-    sp_->set_option(serial_port::baud_rate(460800));
-    sp_->set_option(serial_port::flow_control(serial_port::flow_control::none));
-    sp_->set_option(serial_port::parity(serial_port::parity::none));
-    sp_->set_option(serial_port::stop_bits(serial_port::stop_bits::one));
-    sp_->set_option(serial_port::character_size(8));
-    iosev_.run();
+int main(int argc, char** argv) {
+    sp.reset(Stream::Serial("/dev/ttyTHS1", 460800));
 
     ros::init(argc, argv, "base_controller");
     ros::NodeHandle n_;
