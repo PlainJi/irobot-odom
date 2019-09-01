@@ -42,18 +42,20 @@ ros::Publisher poly_pub_;
 ros::Publisher odom_pub_;
 
 void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
-    if (twist_aux.linear.x > 0.2)
-        twist_aux.linear.x = 0.2;
-    if (twist_aux.angular.z > 2.0)
-        twist_aux.angular.z = 2.0;
+    int linear_speed = twist_aux.linear.x;
+    int angular_speed = twist_aux.angular.z;
+    if (linear_speed > 0.2)
+        linear_speed = 0.2;
+    if (angular_speed > 2.0)
+        angular_speed = 2.0;
     // 速度
-    int DesireL = twist_aux.linear.x * UNIT;
-    int DesireR = twist_aux.linear.x * UNIT;
+    int DesireL = linear_speed * UNIT;
+    int DesireR = linear_speed * UNIT;
     // 角速度 rad/s
     // 本次要转动的角度 theta = DesireAngVelo * SAMPLE_TIME
     // Theta = dis / base   dis = theta * base
     // 每个轮子移动距离 d = dis/2 = theta * base / 2
-    int DiffDis = (twist_aux.angular.z/3.14*180.0) * SAMPLE_TIME * WHEEL_BASE / 2.0 * UNIT;
+    int DiffDis = (angular_speed/3.14*180.0) * SAMPLE_TIME * WHEEL_BASE / 2.0 * UNIT;
     DesireL += DiffDis;
     DesireR -= DiffDis;
     memset(send_buf, 0, sizeof(send_buf));
