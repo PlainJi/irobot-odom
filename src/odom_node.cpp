@@ -49,9 +49,9 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
     // 本次要转动的角度 theta = DesireAngVelo * SAMPLE_TIME
     // Theta = dis / base   dis = theta * base
     // 每个轮子移动距离 d = dis/2 = theta * base / 2
-    int DiffDis = twist_aux.angular.z * SAMPLE_TIME * WHEEL_BASE / 2.0 * UNIT;
-    DesireL -= DiffDis;
-    DesireR += DiffDis;
+    int DiffDis = (twist_aux.angular.z/3.14*180.0) * SAMPLE_TIME * WHEEL_BASE / 2.0 * UNIT;
+    DesireL += DiffDis;
+    DesireR -= DiffDis;
     memset(send_buf, 0, sizeof(send_buf));
     sprintf(send_buf, "$%+06d,%+06d\n", DesireL, DesireR);
     sp->Write(reinterpret_cast<uint8_t*>(send_buf), strlen(send_buf));
