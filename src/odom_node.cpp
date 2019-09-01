@@ -46,8 +46,13 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
     float angular_speed = twist_aux.angular.z;
     if (linear_speed > 0.2)
         linear_speed = 0.2;
+    else if (linear_speed < -0.2)
+        linear_speed = -0.2;
     if (angular_speed > 2.0)
         angular_speed = 2.0;
+    else if (angular_speed < -2.0)
+        angular_speed = -2.0;
+
     // 速度
     int DesireL = linear_speed * UNIT;
     int DesireR = linear_speed * UNIT;
