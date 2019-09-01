@@ -42,6 +42,10 @@ ros::Publisher poly_pub_;
 ros::Publisher odom_pub_;
 
 void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
+    if (twist_aux.linear.x > 0.2)
+        twist_aux.linear.x = 0.2;
+    if (twist_aux.angular.z > 2.0)
+        twist_aux.angular.z = 2.0;
     // 速度
     int DesireL = twist_aux.linear.x * UNIT;
     int DesireR = twist_aux.linear.x * UNIT;
@@ -71,17 +75,17 @@ void SerialRecvTask() {
             int l = 0, r = 0, voltage = 0;
             if (15 == ret) {
                 sscanf(recv_buf, "#%d,%d\n", &l, &r);
-                ROS_INFO("Encoder Report: left=%d right=%d", l, r);
+                //ROS_INFO("Encoder Report: left=%d right=%d", l, r);
             } else if (8 == ret) {
                 sscanf(recv_buf, "#%d\n", &voltage);
                 ROS_INFO("Voltage Report: %.2fV", voltage/100.0);
             } else {
-                ROS_INFO("Serial port communication failed! %s", recv_buf);
+                ROS_INFO("Length not valid, recv: %s", recv_buf);
             }
         } else {
-            ROS_INFO("Serial port communication failed! %s", recv_buf);
+            ROS_INFO("Check failed, recv: %s", recv_buf);
         }
-    }   // end-while
+    }
 }
 
 void PolyPubTask() {
