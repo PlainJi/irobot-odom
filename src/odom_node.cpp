@@ -42,8 +42,8 @@ ros::Publisher poly_pub_;
 ros::Publisher odom_pub_;
 
 void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
-    int linear_speed = twist_aux.linear.x;
-    int angular_speed = twist_aux.angular.z;
+    float linear_speed = twist_aux.linear.x;
+    float angular_speed = twist_aux.angular.z;
     if (linear_speed > 0.2)
         linear_speed = 0.2;
     if (angular_speed > 2.0)
