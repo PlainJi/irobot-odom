@@ -32,12 +32,13 @@
 
 using namespace std;
 using namespace boost::asio;
-io_service iosev;
-serial_port sp(iosev, "/dev/ttyUSB0");
-std::thread recv_task;
+std::shared_ptr<serial_port> sp_;
 
-void cmd_velCallback(const geometry_msgs::Twist &twist_aux) {
-    printf("callback\n");
+ros::Subscriber vel_sub_;
+ros::Publisher poly_pub_;
+ros::Publisher odom_pub_;
+
+void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
     // 速度
     int DesireL = twist_aux.linear.x * UNIT;
     int DesireR = twist_aux.linear.x * UNIT;
@@ -50,12 +51,12 @@ void cmd_velCallback(const geometry_msgs::Twist &twist_aux) {
     DesireR += DiffDis;
 
     boost::asio::streambuf temp;
-	char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
-    sprintf(p, "$+%05d,-%05d\n", DesireL, DesireR);
-    //write(sp, temp);
+    char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
+    sprintf(p, "$%+06d,%+06d\n", DesireL, DesireR);
+    write(*sp_, temp);
     std::cout << "send: " << p;
 }
-/*
+
 void SerialRecvTask() {
     int cnt = 0;
     double x = 0.0;
@@ -65,103 +66,36 @@ void SerialRecvTask() {
     double vy = 0.0;
     double vth = 0.0;
     double dt = 0.0;
+    tf::TransformBroadcaster odom_broadcaster_;
+
     ros::Time current_time = ros::Time::now();
     ros::Time last_time = ros::Time::now();
-
     while(ros::ok()) {
-        current_time = ros::Time::now();
-
-	    boost::asio::streambuf temp;
-	    read_until(sp, temp, '\n');
-	    char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
-	    std::cout << "recv: " << p;
+        boost::asio::streambuf temp;
+        read_until(*sp_, temp, '\n');
+        char *p = const_cast<char*>(boost::asio::buffer_cast<const char*>(temp.data()));
 
         if (p[0] == '#') {
-             //vx  = speed_buf_rev.vx;
-             //vy  = speed_buf_rev.vy;
-             //vth = speed_buf_rev.vth;
-
-             //ROS_INFO("vx  is %2f", vx);
-             //ROS_INFO("vy  is %2f", vy);
-             //ROS_INFO("vth is %2f", vth);
-
-             //compute odometry in a typical way given the velocities of the robot
-             double dt = (current_time - last_time).toSec();
-             double delta_x = (vx * cos(th) - vy * sin(th)) * dt;
-             double delta_y = (vx * sin(th) + vy * cos(th)) * dt;
-             double delta_th = vth * dt;
-
-             x += delta_x;
-             y += delta_y;
-             th += delta_th;
-
-             //first, we'll publish the transform over tf
-             geometry_msgs::TransformStamped odom_trans;
-             odom_trans.header.stamp = current_time;
-             odom_trans.header.frame_id = "odom";
-             odom_trans.child_frame_id = "base_link";
-
-             odom_trans.transform.translation.x = x;
-             odom_trans.transform.translation.y = y;
-             odom_trans.transform.translation.z = 0.0;
-             odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(th);
-
-             // send the transform
-             odom_broadcaster.sendTransform(odom_trans);
-
-
-             //next, we'll publish the odometry message over ROS
-             nav_msgs::Odometry odom;
-             odom.header.stamp = current_time;
-             odom.header.frame_id = "odom";
-             odom.child_frame_id = "base_link";
-
-             // since all odometry is 6DOF we'll need a quaternion created from yaw
-             geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromRollPitchYaw(0,0,th);
-
-             //set the position
-             odom.pose.pose.position.x = x;
-             odom.pose.pose.position.y = y;
-             odom.pose.pose.position.z = 0.0;
-             odom.pose.pose.orientation = odom_quat;
-
-             // set the velocity
-             odom.twist.twist.linear.x = vx;
-             odom.twist.twist.linear.y = vy;
-             odom.twist.twist.angular.z = vth;
-
-             odom_pub.publish(odom);
-        } else
-            ROS_INFO("Serial port communication failed!");
-        last_time = current_time;
+            int l = 0, r = 0, voltage = 0;
+            if (15 == strlen(p)) {
+                sscanf(p, "#%d,%d\n", &l, &r);
+                ROS_INFO("Encoder Report: left=%d right=%d", l, r);
+            } else if (22 == strlen(p)) {
+                sscanf(p, "#%d,%d\n#%d", &l, &r, &voltage);
+                ROS_INFO("Encoder Report: left=%d right=%d", l, r);
+                ROS_INFO("Voltage Report: %.2fV", voltage/100.0);
+            }
+        } else {
+            ROS_INFO("Serial port communication failed! %s", p);
+        }
     }   // end-while
 }
-*/
 
-int main(int argc, char** argv)
-{
-    sp.set_option(serial_port::baud_rate(460800));
-    sp.set_option(serial_port::flow_control(serial_port::flow_control::none));
-    sp.set_option(serial_port::parity(serial_port::parity::none));
-    sp.set_option(serial_port::stop_bits(serial_port::stop_bits::one));
-    sp.set_option(serial_port::character_size(8));
-
-    ros::init(argc, argv, "base_controller");
-    ros::NodeHandle n;
-    ros::Subscriber cmd_vel_sub;
-    ros::Publisher poly_pub;
-    ros::Publisher odom_pub;
-    tf::TransformBroadcaster odom_broadcaster;
-
-    cmd_vel_sub = n.subscribe("/cmd_vel", 10, cmd_velCallback);
-    odom_pub = n.advertise<nav_msgs::Odometry>("/odom", 10);
-    poly_pub = n.advertise<geometry_msgs::PolygonStamped>("/polygon",10);
-    ros::Time current_time;
-
-    //recv_task = std::thread(std::bind(&SerialRecvTask));
+void PolyPubTask() {
+    ros::Rate r(10);
 
     while(ros::ok()) {
-        //publish polygon message
+        //publish polygon messageBotInit
         geometry_msgs::Point32 point[4];
         // coordinates described in base_link frame
         point[0].x = -0.39;  point[0].y = -0.31;
@@ -169,18 +103,48 @@ int main(int argc, char** argv)
         point[2].x = 0.39;   point[2].y = 0.31;
         point[3].x = -0.39;  point[3].y = 0.31;
 
+        ros::Time current_time = ros::Time::now();
         geometry_msgs::PolygonStamped poly;
-        current_time = ros::Time::now();
         poly.header.stamp = current_time;
         poly.header.frame_id = "base_link";
         poly.polygon.points.push_back(point[0]);
         poly.polygon.points.push_back(point[1]);
         poly.polygon.points.push_back(point[2]);
         poly.polygon.points.push_back(point[3]);
-        poly_pub.publish(poly);
+        poly_pub_.publish(poly);
 
-        ros::spinOnce();
+        r.sleep();
     }
+}
 
-    iosev.run();
+int main(int argc, char** argv)
+{
+    io_service iosev_;
+    sp_.reset(new serial_port(iosev_, "/dev/ttyTHS1"));
+    sp_->set_option(serial_port::baud_rate(460800));
+    sp_->set_option(serial_port::flow_control(serial_port::flow_control::none));
+    sp_->set_option(serial_port::parity(serial_port::parity::none));
+    sp_->set_option(serial_port::stop_bits(serial_port::stop_bits::one));
+    sp_->set_option(serial_port::character_size(8));
+    iosev_.run();
+
+    ros::init(argc, argv, "base_controller");
+    ros::NodeHandle n_;
+    odom_pub_ = n_.advertise<nav_msgs::Odometry>("/odom", 10);
+    poly_pub_ = n_.advertise<geometry_msgs::PolygonStamped>("/polygon",10);
+    vel_sub_ = n_.subscribe("/cmd_vel", 10, CmdVelCallback);
+
+    std::thread recv_task_ = std::thread(std::bind(SerialRecvTask));
+    std::thread poly_task_ = std::thread(std::bind(PolyPubTask));
+
+    ros::spin();
+
+    if (recv_task_.joinable()) {
+        recv_task_.join();
+        ROS_INFO("recv_task_ joined!");
+    }
+    if (poly_task_.joinable()) {
+        poly_task_.join();
+        ROS_INFO("poly_task_ joined!");
+    }
 }
