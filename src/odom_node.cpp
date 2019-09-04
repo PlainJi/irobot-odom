@@ -22,8 +22,8 @@
 // recv the current battery voltage
 // #+01234\n
 
-#define WHEEL_BASE      (0.15f)                     //轮距 m
-#define PERIMITER       (0.206f)			        //轮子周长 m
+#define WHEEL_BASE      (0.15)                     //轮距 m
+#define PERIMITER       (0.245)			        //轮子周长 m
 #define UNIT            (512*27/PERIMITER)	        //每米对应的编码器脉冲数
 #define CONTROL_TIME    (0.005)			            //编码器采样周期 5ms
 #define REPOET_TIME     (0.1)                       //小车里程计上报周期
@@ -39,8 +39,8 @@ ros::Publisher poly_pub;
 ros::Publisher odom_pub;
 
 void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
-    float linear_speed = twist_aux.linear.x;
-    float angular_speed = twist_aux.angular.z;
+    double linear_speed = twist_aux.linear.x;
+    double angular_speed = twist_aux.angular.z;
     if (linear_speed > 0.2)
         linear_speed = 0.2;
     else if (linear_speed < -0.2)
@@ -50,26 +50,27 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
     else if (angular_speed < -2.0)
         angular_speed = -2.0;
 
-    // 速度
-    int DesireL = linear_speed * UNIT;
-    int DesireR = linear_speed * UNIT;
+    // 每个control time内期望的脉冲数=速度(m/s) * 每米的脉冲数(个) * CONTROL_TIME
+    int DesireL = linear_speed * UNIT * CONTROL_TIME;
+    int DesireR = linear_speed * UNIT * CONTROL_TIME;
     // 角速度 rad/s
     // 本次要转动的角度 theta = DesireAngVelo * CONTROL_TIME
     // Theta = dis / base   dis = theta * base
     // 每个轮子移动距离 d = dis/2 = theta * base / 2
-    int DiffDis = (angular_speed/3.14*180.0) * CONTROL_TIME * WHEEL_BASE / 2.0 * UNIT;
+    int DiffDis = angular_speed * CONTROL_TIME * WHEEL_BASE / 2.0 * UNIT;
     DesireL += DiffDis;
     DesireR -= DiffDis;
     memset(send_buf, 0, sizeof(send_buf));
     sprintf(send_buf, "$%+06d,%+06d\n", DesireL, DesireR);
+    ROS_INFO("desire   L=%d   R=%d   diff: %d", DesireL, DesireR, DiffDis);
     sp->Write(reinterpret_cast<uint8_t*>(send_buf), strlen(send_buf));
     ROS_INFO("send: %s", send_buf);
 }
 
 void SerialRecvTask() {
-    float DisLeft=0, DisRight=0, Distance=0, DistanceDiff=0, Theta=0, r=0;
-    float x=0, y=0, th=0;
-    float vx=0, vy=0, vth=0;
+    double DisLeft=0, DisRight=0, Distance=0, DistanceDiff=0, Theta=0, r=0;
+    double x=0, y=0, th=0;
+    double vx=0, vy=0, vth=0;
     tf::TransformBroadcaster odom_broadcaster;
 
     while(ros::ok()) {
@@ -80,9 +81,10 @@ void SerialRecvTask() {
             int l = 0, r = 0, voltage = 0;
             if (15 == ret) {
                 sscanf(recv_buf, "#%d,%d\n", &l, &r);
-                DisLeft = (float)l / UNIT;
-                DisRight = (float)r / UNIT;
+                DisLeft = (double)l / UNIT;
+                DisRight = (double)r / UNIT;
                 DistanceDiff = DisRight - DisLeft;              //两轮行驶的距离差，m
+                ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r, DisLeft, DisRight, DistanceDiff);
                 Distance = (DisLeft + DisRight) / 2.0;          //两轮平均行驶距离，m
                 vx = Distance / REPOET_TIME;                    //小车线速度，m/s
                 Theta = DistanceDiff / WHEEL_BASE;              //小车转向角，rad  当θ很小时，θ ≈ sin(θ)
@@ -95,7 +97,7 @@ void SerialRecvTask() {
                 if (th < -PI) th += 2*PI;
                 //ROS_INFO("recv: %d %d", l, r);
                 //ROS_INFO("Encoder Report: left=%.2fm right=%.2fm", left, right);
-                ROS_INFO("Odom Report:   x=%.2f y=%.2f th=%.2f   vx=%.2f vy=%.2f vth=%.2f", \
+                //ROS_INFO("Odom Report:   x=%.2f y=%.2f th=%.2f   vx=%.2f vy=%.2f vth=%.2f", \
                     x, y, th, vx, vy, vth);
 
                 ros::Time current_time = ros::Time::now();
@@ -112,7 +114,7 @@ void SerialRecvTask() {
                 nav_msgs::Odometry odom;
                 odom.header.stamp = current_time;
                 odom.header.frame_id = "odom";
-                //odom.child_frame_id = "";
+                odom.child_frame_id = "base_link";
                 geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromRollPitchYaw(0,0,th);  //TODO
                 odom.pose.pose.position.x = x;
                 odom.pose.pose.position.y = y;
@@ -158,7 +160,7 @@ void PolyPubTask() {
 }
 
 int main(int argc, char** argv) {
-    sp.reset(Stream::Serial("/dev/ttyTHS1", 460800));
+    sp.reset(Stream::Serial("/dev/ttyTHS1", 230400));
 
     ros::init(argc, argv, "base_controller");
     ros::NodeHandle n;
