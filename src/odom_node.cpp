@@ -22,8 +22,8 @@
 // recv the current battery voltage
 // #+01234\n
 
-#define WHEEL_BASE      (0.205)                     //轮距 m
-#define PERIMITER       (0.245)			            //轮子周长 m
+#define WHEEL_BASE      (0.20)                      //轮距 m
+#define PERIMITER       (0.238)			            //轮子周长 m
 #define UNIT            (512*27/PERIMITER)	        //每米对应的编码器脉冲数
 #define CONTROL_TIME    (0.005)			            //编码器采样周期 5ms
 #define REPOET_TIME     (0.1)                       //小车里程计上报周期
@@ -68,7 +68,8 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
 }
 
 void SerialRecvTask() {
-    double DisLeft=0, DisRight=0, Distance=0, DistanceDiff=0, Theta=0, r=0;
+    double DisLeft=0, DisRight=0, Distance=0, DistanceDiff=0;
+    double delta_x, delta_y, delta_theta=0, r=0;
     double x=0, y=0, th=0;
     double vx=0, vy=0, vth=0;
     tf::TransformBroadcaster odom_broadcaster;
@@ -84,17 +85,20 @@ void SerialRecvTask() {
                 DisLeft = (double)l / UNIT;
                 DisRight = (double)r / UNIT;
                 DistanceDiff = DisLeft - DisRight;              //两轮行驶的距离差，m
-                ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r, DisLeft, DisRight, DistanceDiff);
+                //ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r, DisLeft, DisRight, DistanceDiff);
                 Distance = (DisLeft + DisRight) / 2.0;          //两轮平均行驶距离，m
-                vx = Distance / REPOET_TIME;                    //小车线速度，m/s
-                Theta = DistanceDiff / WHEEL_BASE;              //小车转向角，rad  当θ很小时，θ ≈ sin(θ)
-                vth = Theta / REPOET_TIME;                      //角速度，rad/s
-                r = Distance / Theta;                           //转弯半径
-                x += r * Theta;                                 //小车x坐标
-                y += r * (1-cos(Theta));                        //小车y坐标
-                th += Theta;                                    //朝向角，rad
+                //vx = Distance / REPOET_TIME;                    //小车线速度，m/s
+                delta_theta = DistanceDiff / WHEEL_BASE;        //小车转向角，rad  当θ很小时，θ ≈ sin(θ)
+                th += delta_theta;                              //朝向角，rad
                 if (th > PI) th -= 2*PI;
                 if (th < -PI) th += 2*PI;
+                vth = delta_theta / REPOET_TIME;                //角速度，rad/s
+
+                r = Distance / delta_theta;                     //转弯半径
+                delta_x = delta_theta * r;
+                delta_y = r * (1-cos(delta_theta));
+                x += cos(th)*delta_x - sin(th)*delta_y;         //小车x坐标
+                y += sin(th)*delta_x + cos(th)*delta_y;         //小车y坐标
                 //ROS_INFO("recv: %d %d", l, r);
                 //ROS_INFO("Encoder Report: left=%.2fm right=%.2fm", left, right);
                 //ROS_INFO("Odom Report:   x=%.2f y=%.2f th=%.2f   vx=%.2f vy=%.2f vth=%.2f", \

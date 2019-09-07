@@ -20,7 +20,7 @@ class CalibrateAngular():
         r = rospy.Rate(self.rate)
         # The test angle is 360 degrees
         self.test_angle = 2*pi
-        self.speed = 0.2 # radians per second
+        self.speed = 0.15 # radians per second
         self.tolerance = 0.01  # radians
         self.odom_angular_scale_correction = 1
 
@@ -61,7 +61,7 @@ class CalibrateAngular():
             delta_angle = self.odom_angular_scale_correction * normalize_angle(self.odom_angle - last_angle)
             rospy.loginfo("delta_angle: "+str(delta_angle))
             # Add to our total angle so far
-            turn_angle += abs(delta_angle)
+            turn_angle += delta_angle
             rospy.loginfo("turn_angle: "+str(turn_angle))
             # Compute dyn_clientthe new error
             error = self.test_angle - turn_angle
