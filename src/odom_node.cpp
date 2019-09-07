@@ -103,8 +103,8 @@ void SerialRecvTask() {
                 ros::Time current_time = ros::Time::now();
                 geometry_msgs::TransformStamped odom_trans;
                 odom_trans.header.stamp = current_time;
-                odom_trans.header.frame_id = "base_link";
-                odom_trans.child_frame_id = "odom";
+                odom_trans.header.frame_id = "odom";
+                odom_trans.child_frame_id = "base_link";
                 odom_trans.transform.translation.x = x;
                 odom_trans.transform.translation.y = y;
                 odom_trans.transform.translation.z = 0.0;
@@ -114,7 +114,6 @@ void SerialRecvTask() {
                 nav_msgs::Odometry odom;
                 odom.header.stamp = current_time;
                 odom.header.frame_id = "odom";
-                odom.child_frame_id = "base_link";
                 geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromRollPitchYaw(0,0,th);  //TODO
                 odom.pose.pose.position.x = x;
                 odom.pose.pose.position.y = y;
@@ -143,10 +142,10 @@ void PolyPubTask() {
         ros::Time current_time = ros::Time::now();
         geometry_msgs::PolygonStamped poly;
         geometry_msgs::Point32 point[4];
-        point[0].x = -0.07;  point[0].y = 0;
-        point[1].x = 0.07;   point[1].y = 0;
-        point[2].x = 0.07;   point[2].y = 0.2;
-        point[3].x = -0.07;  point[3].y = 0.2;
+        point[0].x = 0;  point[0].y = -0.07;
+        point[1].x = 0;   point[1].y = 0.07;
+        point[2].x = -0.2;   point[2].y = 0.07;
+        point[3].x = -0.2;  point[3].y = -0.07;
         poly.header.stamp = current_time;
         poly.header.frame_id = "base_link";
         poly.polygon.points.push_back(point[0]);

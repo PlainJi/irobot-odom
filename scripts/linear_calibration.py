@@ -63,7 +63,7 @@ class CalibrateLinear():
                 # Correct the estimated distance by the correction factor
                 distance *= self.odom_linear_scale_correction
                 # How close are we?
-		error =  self.test_distance - distance
+                error =  self.test_distance - distance
 
                 # Are we close enough?
                 if abs(error) < self.tolerance:
@@ -77,7 +77,7 @@ class CalibrateLinear():
                 x_start = self.position.x
                 y_start = self.position.y
                 self.cmd_vel.publish(Twist())
-                print "error: ", error
+                print "linear calibration complete! error: ", error
                 break
             r.sleep()
 
