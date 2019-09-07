@@ -22,8 +22,8 @@
 // recv the current battery voltage
 // #+01234\n
 
-#define WHEEL_BASE      (0.15)                     //轮距 m
-#define PERIMITER       (0.245)			        //轮子周长 m
+#define WHEEL_BASE      (0.205)                     //轮距 m
+#define PERIMITER       (0.245)			            //轮子周长 m
 #define UNIT            (512*27/PERIMITER)	        //每米对应的编码器脉冲数
 #define CONTROL_TIME    (0.005)			            //编码器采样周期 5ms
 #define REPOET_TIME     (0.1)                       //小车里程计上报周期
@@ -83,7 +83,7 @@ void SerialRecvTask() {
                 sscanf(recv_buf, "#%d,%d\n", &l, &r);
                 DisLeft = (double)l / UNIT;
                 DisRight = (double)r / UNIT;
-                DistanceDiff = DisRight - DisLeft;              //两轮行驶的距离差，m
+                DistanceDiff = DisLeft - DisRight;              //两轮行驶的距离差，m
                 ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r, DisLeft, DisRight, DistanceDiff);
                 Distance = (DisLeft + DisRight) / 2.0;          //两轮平均行驶距离，m
                 vx = Distance / REPOET_TIME;                    //小车线速度，m/s
