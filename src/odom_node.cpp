@@ -85,10 +85,9 @@ void SerialRecvTask() {
                 DisLeft = (double)l / UNIT;
                 DisRight = (double)r / UNIT;
                 DistanceDiff = DisLeft - DisRight;              //两轮行驶的距离差，m
-                //ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r, DisLeft, DisRight, DistanceDiff);
                 Distance = (DisLeft + DisRight) / 2.0;          //两轮平均行驶距离，m
-                //vx = Distance / REPOET_TIME;                    //小车线速度，m/s
                 delta_theta = DistanceDiff / WHEEL_BASE;        //小车转向角，rad  当θ很小时，θ ≈ sin(θ)
+
                 th += delta_theta;                              //朝向角，rad
                 if (th > PI) th -= 2*PI;
                 if (th < -PI) th += 2*PI;
@@ -99,9 +98,10 @@ void SerialRecvTask() {
                 delta_y = r * (1-cos(delta_theta));
                 x += cos(th)*delta_x - sin(th)*delta_y;         //小车x坐标
                 y += sin(th)*delta_x + cos(th)*delta_y;         //小车y坐标
-                //ROS_INFO("recv: %d %d", l, r);
-                //ROS_INFO("Encoder Report: left=%.2fm right=%.2fm", left, right);
-                //ROS_INFO("Odom Report:   x=%.2f y=%.2f th=%.2f   vx=%.2f vy=%.2f vth=%.2f", \
+                vx = (cos(th)*delta_x - sin(th)*delta_y) / REPOET_TIME;
+                vy = (sin(th)*delta_x + cos(th)*delta_y) / REPOET_TIME;
+                //ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r, DisLeft, DisRight, DistanceDiff);
+                ROS_INFO("Odom Report:   x=%+7.4f y=%+7.4f th=%+7.4f   vx=%+7.4f vy=%+7.4f vth=%+7.4f", \
                     x, y, th, vx, vy, vth);
 
                 ros::Time current_time = ros::Time::now();

@@ -3,11 +3,11 @@
 	<arg name="ns" default="odom"/>
 	<arg name="device" default="/dev/ttyTHS1"/>
 	<arg name="baudrate"  default="460800"/>
- <group ns="$(arg ns)">
-	<node pkg="odom" name="odom" type="node" output="screen" >
-		<param name="ns" type="string" value="$(arg ns)"/>
-		<param name="device" type="string" value="$(arg device)"/>
-		<param name="baudrate"  type="int" value="$(arg baudrate)"/>
-	</node>
- </group>
+	<group ns="$(arg ns)">
+		<node pkg="odom" name="odom" type="node" output="screen" >
+			<param name="ns" type="string" value="$(arg ns)"/>
+			<param name="device" type="string" value="$(arg device)"/>
+			<param name="baudrate"  type="int" value="$(arg baudrate)"/>
+		</node>
+ 	</group>
 </launch>
