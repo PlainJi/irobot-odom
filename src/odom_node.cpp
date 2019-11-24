@@ -22,11 +22,11 @@
 // recv the current battery voltage
 // #+01234\n
 
-#define WHEEL_BASE      (0.20)                      //轮距 m
+#define WHEEL_BASE      (0.178)                      //轮距 m
 #define PERIMITER       (0.238)			            //轮子周长 m
-#define UNIT            (512*27/PERIMITER)	        //每米对应的编码器脉冲数
-#define CONTROL_TIME    (0.005)			            //编码器采样周期 5ms
-#define REPOET_TIME     (0.1)                       //小车里程计上报周期
+#define UNIT            (1040.0/PERIMITER)	        //每米对应的编码器脉冲数
+#define CONTROL_TIME    (0.05)			            //编码器采样周期 5ms
+#define REPOET_TIME     (0.05)                       //小车里程计上报周期
 #define PI              (3.14159265358979)
 
 using namespace std;
@@ -77,8 +77,8 @@ void SerialRecvTask() {
     while(ros::ok()) {
         memset(recv_buf, 0, sizeof(recv_buf));
         int ret = sp->ReadLine(reinterpret_cast<uint8_t*>(recv_buf), sizeof(recv_buf));
-
-        if (recv_buf[0] == '#') {
+        
+	if (recv_buf[0] == '#') {
             int l = 0, r = 0, voltage = 0;
             if (15 == ret) {
                 sscanf(recv_buf, "#%d,%d\n", &l, &r);
@@ -164,7 +164,7 @@ void PolyPubTask() {
 
 int main(int argc, char** argv) {
     sp.reset(Stream::Serial("/dev/ttyTHS1", 230400));
-
+    
     ros::init(argc, argv, "base_controller");
     ros::NodeHandle n;
     odom_pub = n.advertise<nav_msgs::Odometry>("/odom", 10);
