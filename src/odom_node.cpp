@@ -34,7 +34,7 @@
 using namespace std;
 std::shared_ptr<Stream> sp;
 char send_buf[32];
-char recv_buf[32];
+char recv_buf[64];
 
 ros::Subscriber vel_sub;
 ros::Publisher poly_pub;
@@ -140,10 +140,13 @@ void SerialRecvTask() {
                 ROS_INFO("Voltage Report: %.2fV", voltage/100.0);
 		        break;
             case 'I':
-                sscanf(recv_buf, "I%f%f%f%f%f%f%f%f%f%f",
-                    &gyro[0], &gyro[1], &gyro[2],
-                    &acc[0], &acc[1], &acc[2],
-                    &q[0], &q[1], &q[2], &q[3]);
+                acc[0] = *(float*)(recv_buf+1+12);
+		acc[1] = *(float*)(recv_buf+1+12+4);
+		acc[2] = *(float*)(recv_buf+1+12+8);
+                //sscanf(recv_buf+1, "%f%f%f%f%f%f%f%f%f%f",
+                //    &gyro[0], &gyro[1], &gyro[2],
+                //    &acc[0], &acc[1], &acc[2],
+                //    &q[0], &q[1], &q[2], &q[3]);
 		        ROS_INFO("%f %f %f\t%f %f %f\t%f %f %f %f",
 				    gyro[0], gyro[1], gyro[2],
                     acc[0], acc[1], acc[2],
