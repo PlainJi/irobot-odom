@@ -68,16 +68,91 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
 }
 
 void SerialRecvTask() {
+    int l = 0, r = 0;
+    int voltage = 0;
+    float gyro[3], acc[3], q[4];
+
     double DisLeft=0, DisRight=0, Distance=0, DistanceDiff=0;
-    double delta_x, delta_y, delta_theta=0, r=0;
+    double delta_x, delta_y, delta_theta=0;
     double x=0, y=0, th=0;
     double vx=0, vy=0, vth=0;
+    ros::Time current_time;
+    geometry_msgs::TransformStamped odom_trans;
+    nav_msgs::Odometry odom;
+    geometry_msgs::Quaternion odom_quat;
     tf::TransformBroadcaster odom_broadcaster;
 
     while(ros::ok()) {
         memset(recv_buf, 0, sizeof(recv_buf));
         int ret = sp->ReadLine(reinterpret_cast<uint8_t*>(recv_buf), sizeof(recv_buf));
         
+        switch (recv_buf[0]) {
+            case 'E':
+		    sscanf(recv_buf, "E%d,%d\n", &l, &r);
+		    DisLeft = (double)l / UNIT;
+                DisRight = (double)r / UNIT;
+                DistanceDiff = DisLeft - DisRight;
+                Distance = (DisLeft + DisRight) / 2.0;
+		delta_theta = DistanceDiff / WHEEL_BASE;
+
+                th += delta_theta;
+                if (th > PI) th -= 2*PI;
+                if (th < -PI) th += 2*PI;
+                vth = delta_theta / REPOET_TIME;
+
+                r = Distance / delta_theta;
+                delta_x = delta_theta * r;
+                delta_y = r * (1-cos(delta_theta));
+                x += cos(th)*delta_x - sin(th)*delta_y;
+                y += sin(th)*delta_x + cos(th)*delta_y;
+                vx = (cos(th)*delta_x - sin(th)*delta_y) / REPOET_TIME;
+                vy = (sin(th)*delta_x + cos(th)*delta_y) / REPOET_TIME;
+                //ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r, DisLeft, DisRight, DistanceDiff);
+                ROS_INFO("Odom Report:   x=%+7.4f y=%+7.4f th=%+7.4f   vx=%+7.4f vy=%+7.4f vth=%+7.4f", \
+                    x, y, th, vx, vy, vth);
+
+                current_time = ros::Time::now();
+                odom_trans.header.stamp = current_time;
+                odom_trans.header.frame_id = "odom";
+                odom_trans.child_frame_id = "base_link";
+                odom_trans.transform.translation.x = x;
+                odom_trans.transform.translation.y = y;
+                odom_trans.transform.translation.z = 0.0;
+                odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(th);
+                odom_broadcaster.sendTransform(odom_trans);
+
+                    odom.header.stamp = current_time;
+                    odom.header.frame_id = "odom";
+                    odom_quat = tf::createQuaternionMsgFromRollPitchYaw(0,0,th);  //TODO
+                    odom.pose.pose.position.x = x;
+                    odom.pose.pose.position.y = y;
+                    odom.pose.pose.position.z = 0.0;
+                    odom.pose.pose.orientation = odom_quat;
+                    odom.twist.twist.linear.x = vx;
+                    odom.twist.twist.linear.y = vy;
+                    odom.twist.twist.angular.z = vth;
+                    odom_pub.publish(odom);
+		    break;
+            case 'B':
+		    sscanf(recv_buf, "B%d\n", &voltage);
+		    ROS_INFO("Voltage Report: %.2fV", voltage/100.0);
+		    break;
+            case 'I':
+		    sscanf(recv_buf, "I%f%f%f%f%f%f%f%f%f%f", 
+				    &gyro[0], &gyro[1], &gyro[2], 
+				    &acc[0], &acc[1], &acc[2], 
+				    &q[0], &q[1], &q[2], &q[3]);
+		    ROS_INFO("%f %f %f\t%f %f %f\t%f %f %f %f", 
+				    gyro[0], gyro[1], gyro[2], 
+                                    acc[0], acc[1], acc[2], 
+                                    q[0], q[1], q[2], q[3]);
+		    break;
+            default:
+                    ROS_INFO("Check failed, recv: %s", recv_buf);
+		    break;
+	}
+		    /*
+	}
 	if (recv_buf[0] == '#') {
             int l = 0, r = 0, voltage = 0;
             if (15 == ret) {
@@ -136,6 +211,7 @@ void SerialRecvTask() {
         } else {
             ROS_INFO("Check failed, recv: %s", recv_buf);
         }
+	*/
     }
 }
 
