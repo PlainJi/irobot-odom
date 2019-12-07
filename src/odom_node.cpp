@@ -209,7 +209,7 @@ void SerialRecvTask() {
         //    &gyro[0], &gyro[1], &gyro[2],
         //    &acc[0], &acc[1], &acc[2],
         //    &q[0], &q[1], &q[2], &q[3]);
-        ROS_INFO("%f %f %f\t%f %f %f\t%f %f %f %f", gyro[0], gyro[1], gyro[2],
+        ROS_INFO("%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf %+7.4lf", gyro[0], gyro[1], gyro[2],
                  acc[0], acc[1], acc[2], q[0], q[1], q[2], q[3]);
         break;
       default:
