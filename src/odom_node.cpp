@@ -18,11 +18,11 @@
 // $+12345,+12345\n
 
 // recv the actual number of pulses of the left&right wheel
-// E+00001,+00001\n
+// 55 AA E+00001,+00001\n
 // recv the current battery voltage
-// B+01234\n
+// 55 AA B+01234\n
 // recv gyro, acc, quaternion
-// I%f%f%f%f%f%f%f%f%f%f\n
+// 55 AA I%f%f%f%f%f%f%f%f%f%f\n
 
 #define WHEEL_BASE      (0.178)                      //轮距 m
 #define PERIMITER       (0.238)			            //轮子周长 m
@@ -69,6 +69,37 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
     ROS_INFO("send: %s", send_buf);
 }
 
+void RecvReport(char *buf) {
+    int retry_times = 100, ret = 0;
+    char sync = 0;
+    while (retry_times--) {
+	ROS_INFO("sync1...");
+	ret = sp->Read(reinterpret_cast<uint8_t*>(&sync), 1, 1);
+        if (ret != 1 || sync != 0x55) {
+            continue;
+	}
+	ROS_INFO("sync2...");
+	ret = sp->Read(reinterpret_cast<uint8_t*>(&sync), 1, 1);
+        if (ret != 1 || sync != 0xaa) {
+            continue;
+        }
+	ROS_INFO("recv type...");
+	ret = sp->Read(reinterpret_cast<uint8_t*>(buf), 1, 1);
+        if (ret != 1 || (sync != 'E' && sync != 'B' && sync != 'I') {
+            continue;
+        }
+        ROS_INFO("recv data...");
+	if (sync == 'E') {
+	    ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 13, 64);
+	} else if (sync == 'B') {
+            ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 6, 64);
+        } else if (sync == 'I') {
+            ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 40, 64);
+        }
+	return;
+    }
+}
+
 void SerialRecvTask() {
     int l = 0, r = 0;
     int voltage = 0;
@@ -86,7 +117,7 @@ void SerialRecvTask() {
 
     while(ros::ok()) {
         memset(recv_buf, 0, sizeof(recv_buf));
-        int ret = sp->ReadLine(reinterpret_cast<uint8_t*>(recv_buf), sizeof(recv_buf));
+	RecvReport(recv_buf);
         
         switch (recv_buf[0]) {
             case 'E':
