@@ -28,7 +28,7 @@
 #define PERIMITER       (0.238)			            //轮子周长 m
 #define UNIT            (1040.0/PERIMITER)	        //每米对应的编码器脉冲数
 #define CONTROL_TIME    (0.05)			            //编码器采样周期 5ms
-#define REPOET_TIME     (0.05)                       //小车里程计上报周期
+#define REPORT_TIME     (0.05)                       //小车里程计上报周期
 #define PI              (3.14159265358979)
 
 using namespace std;
@@ -69,35 +69,36 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
     ROS_INFO("send: %s", send_buf);
 }
 
-void RecvReport(char *buf) {
+int RecvReport(char *buf) {
     int retry_times = 100, ret = 0;
     char sync = 0;
     while (retry_times--) {
-	ROS_INFO("sync1...");
 	ret = sp->Read(reinterpret_cast<uint8_t*>(&sync), 1, 1);
-        if (ret != 1 || sync != 0x55) {
+        if (ret != 1 || sync != '~') {
             continue;
 	}
-	ROS_INFO("sync2...");
+	//ROS_INFO("sync1 %02X...", sync);
 	ret = sp->Read(reinterpret_cast<uint8_t*>(&sync), 1, 1);
-        if (ret != 1 || sync != 0xaa) {
+        if (ret != 1 || sync != '>') {
             continue;
         }
-	ROS_INFO("recv type...");
+	//ROS_INFO("sync2 %02X...", sync);
 	ret = sp->Read(reinterpret_cast<uint8_t*>(buf), 1, 1);
-        if (ret != 1 || (sync != 'E' && sync != 'B' && sync != 'I') {
+        if (ret != 1 || (buf[0] != 'E' && buf[0] != 'B' && buf[0] != 'I')) {
             continue;
         }
-        ROS_INFO("recv data...");
-	if (sync == 'E') {
-	    ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 13, 64);
-	} else if (sync == 'B') {
-            ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 6, 64);
-        } else if (sync == 'I') {
-            ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 40, 64);
+        //ROS_INFO("recv type %c...", buf[0]);
+	if (buf[0] == 'E') {
+	    ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 14, 64);
+	} else if (buf[0] == 'B') {
+            ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 7, 64);
+        } else if (buf[0] == 'I') {
+            ret = sp->Read(reinterpret_cast<uint8_t*>(buf+1), 41, 64);
         }
-	return;
+	//ROS_INFO("%s", buf);
+	return 0;
     }
+    return -1;
 }
 
 void SerialRecvTask() {
@@ -106,7 +107,7 @@ void SerialRecvTask() {
     float gyro[3], acc[3], q[4];
 
     double DisLeft=0, DisRight=0, Distance=0, DistanceDiff=0;
-    double delta_x, delta_y, delta_theta=0;
+    double delta_x, delta_y, delta_theta=0, radius=0;
     double x=0, y=0, th=0;
     double vx=0, vy=0, vth=0;
     ros::Time current_time;
@@ -117,31 +118,47 @@ void SerialRecvTask() {
 
     while(ros::ok()) {
         memset(recv_buf, 0, sizeof(recv_buf));
-	RecvReport(recv_buf);
+	if (RecvReport(recv_buf))
+	    continue;
         
         switch (recv_buf[0]) {
             case 'E':
                 sscanf(recv_buf, "E%d,%d\n", &l, &r);
+		if (l || r) {
                 DisLeft = (double)l / UNIT;
                 DisRight = (double)r / UNIT;
-                DistanceDiff = DisLeft - DisRight;              //两轮行驶的距离差，m
-                Distance = (DisLeft + DisRight) / 2.0;          //两轮平均行驶距离，m
+		Distance = (DisLeft + DisRight) / 2.0;          //两轮平�~]~G��~L驶
+                DistanceDiff = DisLeft - DisRight;              //两轮行驶的距离差
+		if (DistanceDiff) {
                 delta_theta = DistanceDiff / WHEEL_BASE;        //小车转向角，rad  当θ很小时，θ ≈ sin(θ)
 
                 th += delta_theta;                              //朝向角，rad
                 if (th > PI) th -= 2*PI;
                 if (th < -PI) th += 2*PI;
-                vth = delta_theta / REPOET_TIME;                //角速度，rad/s
+                vth = delta_theta / REPORT_TIME;                //角速度，rad/s
 
-                r = Distance / delta_theta;                     //转弯半径
-                delta_x = delta_theta * r;
-                delta_y = r * (1-cos(delta_theta));
-                x += cos(th)*delta_x - sin(th)*delta_y;         //小车x坐标
-                y += sin(th)*delta_x + cos(th)*delta_y;         //小车y坐标
-                vx = (cos(th)*delta_x - sin(th)*delta_y) / REPOET_TIME;
-                vy = (sin(th)*delta_x + cos(th)*delta_y) / REPOET_TIME;
+                radius = Distance / delta_theta;                     //转弯半径
+                delta_x = delta_theta * radius;
+                delta_y = radius * (1-cos(delta_theta));
+                x = x + cos(th)*delta_x - sin(th)*delta_y;         //小车x坐标
+                y = y + sin(th)*delta_x + cos(th)*delta_y;         //小车y坐标
+                vx = (cos(th)*delta_x - sin(th)*delta_y) / REPORT_TIME;
+                vy = (sin(th)*delta_x + cos(th)*delta_y) / REPORT_TIME;
+		} else {
+		    x += DisLeft;
+		    y = y;
+		    th = th;
+		    vx = DisLeft / REPORT_TIME;
+		    vy = 0;
+		    vth = 0;
+		}
+		} else {
+		    vx = 0;
+		    vy = 0;
+		    vth = 0;
+		}
                 //ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r, DisLeft, DisRight, DistanceDiff);
-                ROS_INFO("Odom Report:   x=%+7.4f y=%+7.4f th=%+7.4f   vx=%+7.4f vy=%+7.4f vth=%+7.4f", \
+                ROS_INFO("Odom Report:   x=%+7.4lf y=%+7.4lf th=%+7.4lf   vx=%+7.4lf vy=%+7.4lf vth=%+7.4f", \
                     x, y, th, vx, vy, vth);
 
                 current_time = ros::Time::now();
@@ -168,7 +185,7 @@ void SerialRecvTask() {
 		        break;
             case 'B':
                 sscanf(recv_buf, "B%d\n", &voltage);
-                ROS_INFO("Voltage Report: %.2fV", voltage/100.0);
+                //ROS_INFO("Voltage Report: %.2fV\n", voltage/100.0);
 		        break;
             case 'I':
                 acc[0] = *(float*)(recv_buf+1+12);
@@ -178,10 +195,10 @@ void SerialRecvTask() {
                 //    &gyro[0], &gyro[1], &gyro[2],
                 //    &acc[0], &acc[1], &acc[2],
                 //    &q[0], &q[1], &q[2], &q[3]);
-		        ROS_INFO("%f %f %f\t%f %f %f\t%f %f %f %f",
-				    gyro[0], gyro[1], gyro[2],
-                    acc[0], acc[1], acc[2],
-                    q[0], q[1], q[2], q[3]);
+		//ROS_INFO("%f %f %f\t%f %f %f\t%f %f %f %f",
+		//    gyro[0], gyro[1], gyro[2],
+                //    acc[0], acc[1], acc[2],
+                //    q[0], q[1], q[2], q[3]);
 		        break;
             default:
                     ROS_INFO("Check failed, recv: %s", recv_buf);
