@@ -13,6 +13,7 @@
 #include <std_msgs/String.h>
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
+#include <sensor_msgs/Imu.h>
 
 // send the excepted number of pulses of the left&right wheel
 // $+12345,+12345\n
@@ -37,8 +38,9 @@ char send_buf[32];
 char recv_buf[64];
 
 ros::Subscriber vel_sub;
-ros::Publisher poly_pub;
-ros::Publisher odom_pub;
+ros::Publisher pub_poly;
+ros::Publisher pub_odom;
+ros::Publisher pub_imu;
 
 void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
   double linear_speed = twist_aux.linear.x;
@@ -116,6 +118,7 @@ void SerialRecvTask() {
   nav_msgs::Odometry odom;
   geometry_msgs::Quaternion odom_quat;
   tf::TransformBroadcaster odom_broadcaster;
+  sensor_msgs::Imu imu;
 
   while (ros::ok()) {
     memset(recv_buf, 0, sizeof(recv_buf));
@@ -188,7 +191,7 @@ void SerialRecvTask() {
         odom.twist.twist.linear.x = vx;
         odom.twist.twist.linear.y = vy;
         odom.twist.twist.angular.z = vth;
-        odom_pub.publish(odom);
+        pub_odom.publish(odom);
         break;
       case 'B':
         sscanf(recv_buf, "B%d\n", &voltage);
@@ -205,6 +208,24 @@ void SerialRecvTask() {
         q[1] = *(float *)(recv_buf + 1 + 24 + 4);
         q[2] = *(float *)(recv_buf + 1 + 24 + 8);
         q[3] = *(float *)(recv_buf + 1 + 24 + 12);
+        current_time = ros::Time::now();
+        imu.header.stamp = current_time;
+        imu.header.frame_id = "mpu6050";
+        //imu.child_frame_id = "base_link";
+        imu.orientation.w = q[0];
+        imu.orientation.x = q[1];
+        imu.orientation.y = q[2];
+        imu.orientation.z = q[3];
+        //imu.orientation_covariance
+        imu.angular_velocity.x = gyro[0];
+        imu.angular_velocity.y = gyro[1];
+        imu.angular_velocity.z = gyro[2];
+        //imu.angular_velocity_covariance
+        imu.linear_acceleration.x = acc[0];
+        imu.linear_acceleration.y = acc[1];
+        imu.linear_acceleration.z = acc[2];
+        //imu.linear_acceleration_covariance
+        pub_imu.publish(imu);
         //ROS_INFO("%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf %+7.4lf", \
 		gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], q[0], q[1], q[2], q[3]);
         break;
@@ -216,7 +237,7 @@ void SerialRecvTask() {
 }
 
 void PolyPubTask() {
-  ros::Rate r(10);
+  ros::Rate r(20);
 
   while (ros::ok()) {
     ros::Time current_time = ros::Time::now();
@@ -236,7 +257,7 @@ void PolyPubTask() {
     poly.polygon.points.push_back(point[1]);
     poly.polygon.points.push_back(point[2]);
     poly.polygon.points.push_back(point[3]);
-    poly_pub.publish(poly);
+    pub_poly.publish(poly);
 
     r.sleep();
   }
@@ -247,8 +268,9 @@ int main(int argc, char **argv) {
 
   ros::init(argc, argv, "base_controller");
   ros::NodeHandle n;
-  odom_pub = n.advertise<nav_msgs::Odometry>("/odom", 10);
-  poly_pub = n.advertise<geometry_msgs::PolygonStamped>("/polygon", 10);
+  pub_odom = n.advertise<nav_msgs::Odometry>("/odom", 20);
+  pub_poly = n.advertise<geometry_msgs::PolygonStamped>("/polygon", 20);
+  pub_imu = n.advertise<sensor_msgs::Imu>("/imu_data", 20);
   vel_sub = n.subscribe("/cmd_vel", 10, CmdVelCallback);
 
   std::thread recv_task = std::thread(std::bind(SerialRecvTask));
