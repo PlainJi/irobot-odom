@@ -205,12 +205,8 @@ void SerialRecvTask() {
         q[1] = *(float *)(recv_buf + 1 + 24 + 4);
         q[2] = *(float *)(recv_buf + 1 + 24 + 8);
         q[3] = *(float *)(recv_buf + 1 + 24 + 12);
-        // sscanf(recv_buf+1, "%f%f%f%f%f%f%f%f%f%f",
-        //    &gyro[0], &gyro[1], &gyro[2],
-        //    &acc[0], &acc[1], &acc[2],
-        //    &q[0], &q[1], &q[2], &q[3]);
-        ROS_INFO("%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf %+7.4lf", gyro[0], gyro[1], gyro[2],
-                 acc[0], acc[1], acc[2], q[0], q[1], q[2], q[3]);
+        //ROS_INFO("%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf %+7.4lf", \
+		gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], q[0], q[1], q[2], q[3]);
         break;
       default:
         ROS_INFO("Check failed, recv: %s", recv_buf);
