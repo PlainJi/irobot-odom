@@ -187,6 +187,7 @@ void SerialRecvTask() {
         odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(th);
         odom_broadcaster.sendTransform(odom_trans);
 
+        current_time = ros::Time::now();
         odom.header.stamp = current_time;
         odom.header.frame_id = "odom";
         odom_quat = tf::createQuaternionMsgFromRollPitchYaw(0, 0, th);  // TODO
@@ -194,9 +195,21 @@ void SerialRecvTask() {
         odom.pose.pose.position.y = y;
         odom.pose.pose.position.z = 0.0;
         odom.pose.pose.orientation = odom_quat;
+        odom.pose.covariance[0] = 1e-3;
+        odom.pose.covariance[7] = 1e-3;
+        odom.pose.covariance[14] = 1e6;
+        odom.pose.covariance[21] = 1e6;
+        odom.pose.covariance[28] = 1e6;
+        odom.pose.covariance[35] = 1e3;
         odom.twist.twist.linear.x = vx;
         odom.twist.twist.linear.y = vy;
         odom.twist.twist.angular.z = vth;
+        odom.twist.covariance[0] = 1e-3;
+        odom.twist.covariance[7] = 1e-3;
+        odom.twist.covariance[14] = 1e6;
+        odom.twist.covariance[21] = 1e6;
+        odom.twist.covariance[28] = 1e6;
+        odom.twist.covariance[35] = 1e3;
         pub_odom.publish(odom);
         break;
       case 'B':
@@ -224,15 +237,19 @@ void SerialRecvTask() {
         imu.orientation.x = q[1];
         imu.orientation.y = q[2];
         imu.orientation.z = q[3];
-        //imu.orientation_covariance
+        imu.orientation_covariance[0] = 1e6;
+        imu.orientation_covariance[4] = 1e6;
+        imu.orientation_covariance[8] = 1e-6;
         imu.angular_velocity.x = gyro[0];
         imu.angular_velocity.y = gyro[1];
         imu.angular_velocity.z = gyro[2];
-        //imu.angular_velocity_covariance
+        imu.angular_velocity_covariance[0] = 1e6;
+        imu.angular_velocity_covariance[4] = 1e6;
+        imu.angular_velocity_covariance[8] = 1e-6;
         imu.linear_acceleration.x = acc[0];
         imu.linear_acceleration.y = acc[1];
         imu.linear_acceleration.z = acc[2];
-        //imu.linear_acceleration_covariance
+        imu.linear_acceleration_covariance[0] = -1;
         pub_imu.publish(imu);
         //ROS_INFO("%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf %+7.4lf", \
 		gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], q[0], q[1], q[2], q[3]);
