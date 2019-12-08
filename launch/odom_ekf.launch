@@ -1,0 +1,7 @@
+<launch>
+   <node name="odom_ekf" pkg="odom" type="odom_ekf.py" output="screen">
+   	<remap from="input" to="/robot_pose_ekf/odom_combined"/>
+   	<remap from="output" to="/odom_ekf"/>
+   </node>
+</launch>
+
