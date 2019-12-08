@@ -177,19 +177,19 @@ void SerialRecvTask() {
         ROS_INFO("Odom Report: x=%+7.4lf y=%+7.4lf th=%+7.4lf vx=%+7.4lf "
                  "vy=%+7.4lf vth=%+7.4f", x, y, th, vx, vy, vth);
 
-        current_time = ros::Time::now();
-        odom_trans.header.stamp = current_time;
-        odom_trans.header.frame_id = "odom";
-        odom_trans.child_frame_id = "base_link";
-        odom_trans.transform.translation.x = x;
-        odom_trans.transform.translation.y = y;
-        odom_trans.transform.translation.z = 0.0;
-        odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(th);
-        odom_broadcaster.sendTransform(odom_trans);
+        // current_time = ros::Time::now();
+        // odom_trans.header.stamp = current_time;
+        // odom_trans.header.frame_id = "odom";
+        // odom_trans.child_frame_id = "base_link";
+        // odom_trans.transform.translation.x = x;
+        // odom_trans.transform.translation.y = y;
+        // odom_trans.transform.translation.z = 0.0;
+        // odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(th);
+        // odom_broadcaster.sendTransform(odom_trans);
 
         current_time = ros::Time::now();
         odom.header.stamp = current_time;
-        odom.header.frame_id = "odom";
+        //odom.header.frame_id = "odom";
         odom_quat = tf::createQuaternionMsgFromRollPitchYaw(0, 0, th);  // TODO
         odom.pose.pose.position.x = x;
         odom.pose.pose.position.y = y;
