@@ -14,6 +14,7 @@
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <sensor_msgs/Imu.h>
+#include <std_msgs/Float64.h>
 
 // send the excepted number of pulses of the left&right wheel
 // $+12345,+12345\n
@@ -41,6 +42,7 @@ ros::Subscriber vel_sub;
 ros::Publisher pub_poly;
 ros::Publisher pub_odom;
 ros::Publisher pub_imu;
+ros::Publisher pub_voltage;
 
 void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
   double linear_speed = twist_aux.linear.x;
@@ -69,7 +71,7 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
   ROS_INFO("desire   L=%d   R=%d   diff: %d", desire_left, desire_right,
            diff_distance);
   sp->Write(reinterpret_cast<uint8_t *>(send_buf), strlen(send_buf));
-  ROS_INFO("send: %s", send_buf);
+  //ROS_INFO("send: %s", send_buf);
 }
 
 int RecvReport(char *buf) {
@@ -119,6 +121,7 @@ void SerialRecvTask() {
   geometry_msgs::Quaternion odom_quat;
   tf::TransformBroadcaster odom_broadcaster;
   sensor_msgs::Imu imu;
+  std_msgs::Float64 vol;
 
   while (ros::ok()) {
     memset(recv_buf, 0, sizeof(recv_buf));
@@ -195,7 +198,9 @@ void SerialRecvTask() {
         break;
       case 'B':
         sscanf(recv_buf, "B%d\n", &voltage);
-        ROS_INFO("Voltage Report: %.2fV\n", voltage / 100.0);
+        //ROS_INFO("Voltage Report: %.2fV\n", voltage / 100.0);
+        vol.data = voltage/100.0;
+        pub_voltage.publish(vol);
         break;
       case 'I':
         gyro[0] = *(float *)(recv_buf + 1 + 0);
@@ -271,6 +276,7 @@ int main(int argc, char **argv) {
   pub_odom = n.advertise<nav_msgs::Odometry>("/odom", 20);
   pub_poly = n.advertise<geometry_msgs::PolygonStamped>("/polygon", 20);
   pub_imu = n.advertise<sensor_msgs::Imu>("/imu_data", 20);
+  pub_voltage = n.advertise<std_msgs::Float64>("/voltage", 1);
   vel_sub = n.subscribe("/cmd_vel", 10, CmdVelCallback);
 
   std::thread recv_task = std::thread(std::bind(SerialRecvTask));
