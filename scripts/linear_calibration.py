@@ -12,12 +12,12 @@ class CalibrateLinear():
         rospy.on_shutdown(self.shutdown)
 
         # How fast will we check the odometry values?
-        self.rate = 10
+        self.rate = 20
         r = rospy.Rate(self.rate)
 
         # Set the distance to travel
         self.test_distance = 1.0 # meters
-        self.speed = 0.03    	 # meters per second
+        self.speed = 0.05    	 # meters per second
         self.tolerance = 0.003	 # meters
         self.odom_linear_scale_correction = 1.0
         self.start_test = True
@@ -63,7 +63,8 @@ class CalibrateLinear():
                 # Correct the estimated distance by the correction factor
                 distance *= self.odom_linear_scale_correction
                 # How close are we?
-                error =  self.test_distance - distance
+                error = self.test_distance - distance
+                print 'error: ', error
 
                 # Are we close enough?
                 if abs(error) < self.tolerance:
@@ -74,9 +75,9 @@ class CalibrateLinear():
                     self.cmd_vel.publish(move_cmd)
             else:
                 self.position = self.get_position()
-                x_start = self.position.x
-                y_start = self.position.y
-                self.cmd_vel.publish(Twist())
+                print 'start: ', x_start, y_start
+                print 'end:   ', self.position.x, self.position.y
+                self.cmd_vel.publish(Twist())   # stop
                 print "linear calibration complete! error: ", error
                 break
             r.sleep()

@@ -27,7 +27,7 @@
 // 55 AA I%f%f%f%f%f%f%f%f%f%f\n
 
 #define WHEEL_BASE (0.178)         //轮距 m
-#define PERIMITER (0.238)          //轮子周长 m
+#define PERIMITER (0.195)          //轮子周长 m
 #define UNIT (1040.0 / PERIMITER)  //每米对应的编码器脉冲数
 #define CONTROL_TIME (0.05)        //编码器采样周期 5ms
 #define REPORT_TIME (0.05)         //小车里程计上报周期
@@ -64,8 +64,8 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
   // Theta = dis / base   dis = theta * base
   // 每个轮子移动距离 d = dis/2 = theta * base / 2
   int diff_distance = angular_speed * CONTROL_TIME * WHEEL_BASE / 2.0 * UNIT;
-  desire_left += diff_distance;
-  desire_right -= diff_distance;
+  desire_left -= diff_distance;
+  desire_right += diff_distance;
   memset(send_buf, 0, sizeof(send_buf));
   sprintf(send_buf, "$%+06d,%+06d\n", desire_left, desire_right);
   ROS_INFO("desire   L=%d   R=%d   diff: %d", desire_left, desire_right,
@@ -165,6 +165,9 @@ void SerialRecvTask() {
             vth = 0;
           }
         } else {
+          x = x;
+          y = y;
+          th = th;
           vx = 0;
           vy = 0;
           vth = 0;
