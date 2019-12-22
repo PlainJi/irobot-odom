@@ -4,14 +4,12 @@
 	<arg name="server" default="localhost"/>
 	<arg name="ns" default="odom"/>
 	<arg name="device" default="/dev/ttyTHS1"/>
-	<arg name="baudrate"  default="460800"/>
-	<group ns="$(arg ns)">
-		<node pkg="odom" name="odom" type="node" output="screen" >
-			<param name="ns" type="string" value="$(arg ns)"/>
-			<param name="device" type="string" value="$(arg device)"/>
-			<param name="baudrate"  type="int" value="$(arg baudrate)"/>
-		</node>
- 	</group>
+	<arg name="baudrate" default="460800"/>
+	<node pkg="odom" name="odom" type="node" output="screen" >
+		<param name="ns" type="string" value="$(arg ns)"/>
+		<param name="device" type="string" value="$(arg device)"/>
+		<param name="baudrate" type="int" value="$(arg baudrate)"/>
+	</node>
 
 	<!-- tf from base link to base imu link -->
         <node machine="jetson-nano" name="base_imu_link" pkg="tf" type="static_transform_publisher" args="-0.03 0 0 0 0 0 /base_link /base_imu_link 50"/>
