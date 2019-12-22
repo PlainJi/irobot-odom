@@ -174,7 +174,7 @@ void SerialRecvTask() {
         }
         // ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r,
         // distance_left, distance_right, diff_distance);
-        ROS_INFO("Odom Report: x=%+7.4lf y=%+7.4lf th=%+7.4lf vx=%+7.4lf "
+        //ROS_INFO("Odom Report: x=%+7.4lf y=%+7.4lf th=%+7.4lf vx=%+7.4lf " \
                  "vy=%+7.4lf vth=%+7.4f", x, y, th, vx, vy, vth);
 
         // current_time = ros::Time::now();
@@ -214,7 +214,7 @@ void SerialRecvTask() {
         break;
       case 'B':
         sscanf(recv_buf, "B%d\n", &voltage);
-        //ROS_INFO("Voltage Report: %.2fV\n", voltage / 100.0);
+        ROS_INFO("Voltage Report: %.2fV\n", voltage / 100.0);
         vol.data = voltage/100.0;
         pub_voltage.publish(vol);
         break;
@@ -231,7 +231,7 @@ void SerialRecvTask() {
         q[3] = *(float *)(recv_buf + 1 + 24 + 12);
         current_time = ros::Time::now();
         imu.header.stamp = current_time;
-        imu.header.frame_id = "mpu6050";
+        imu.header.frame_id = "base_imu_link";
         //imu.child_frame_id = "base_link";
         imu.orientation.w = q[0];
         imu.orientation.x = q[1];
