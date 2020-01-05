@@ -49,7 +49,7 @@ class CalibrateAngular():
             rospy.loginfo("*************************** ")
             # Rotate the robot to reduce the error
             move_cmd = Twist()
-            move_cmd.angular.z = copysign(self.speed, error) * -1
+            move_cmd.angular.z = copysign(self.speed, error)
             rospy.loginfo("move_cmd.angular.z: "+str(move_cmd.angular.z))
             self.cmd_vel.publish(move_cmd)
             r.sleep()

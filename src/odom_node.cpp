@@ -174,7 +174,7 @@ void SerialRecvTask() {
         }
         // ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r,
         // distance_left, distance_right, diff_distance);
-        //ROS_INFO("Odom Report: x=%+7.4lf y=%+7.4lf th=%+7.4lf vx=%+7.4lf " \
+        // ROS_INFO("Odom Report: x=%+7.4lf y=%+7.4lf th=%+7.4lf vx=%+7.4lf " \
                  "vy=%+7.4lf vth=%+7.4f", x, y, th, vx, vy, vth);
 
         // current_time = ros::Time::now();
