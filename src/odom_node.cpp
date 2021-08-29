@@ -26,12 +26,14 @@
 // recv gyro, acc, quaternion
 // 55 AA I%f%f%f%f%f%f%f%f%f%f\n
 
-#define WHEEL_BASE (0.178)         //轮距 m
-#define PERIMITER (0.195)          //轮子周长 m
-#define UNIT (1040.0 / PERIMITER)  //每米对应的编码器脉冲数
-#define CONTROL_TIME (0.05)        //编码器采样周期 5ms
-#define REPORT_TIME (0.05)         //小车里程计上报周期
-#define PI (3.14159265358979)
+#define PI		(3.14159265358979)
+#define WHEEL_BASE	(0.18)         //轮距 m
+#define PERIMITER	(0.205)
+#define UNIT		(1.0*500*30*4 / PERIMITER)  //每米对应的编码器脉冲数
+#define CONTROL_TIME	(0.02)        //编码器采样周期 5ms
+#define REPORT_TIME	(0.02)         //小车里程计上报周期
+#define SPEED_LIMIT	(0.2)          //
+#define LINEAR_RATIO	(1.03)        //
 
 using namespace std;
 std::shared_ptr<Stream> sp;
@@ -59,6 +61,7 @@ void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
   // 每个control time内期望的脉冲数=速度(m/s) * 每米的脉冲数(个) * CONTROL_TIME
   int desire_left = linear_speed * UNIT * CONTROL_TIME;
   int desire_right = linear_speed * UNIT * CONTROL_TIME;
+  desire_left *= LINEAR_RATIO;
   // 角速度 rad/s
   // 本次要转动的角度 theta = DesireAngVelo * CONTROL_TIME
   // Theta = dis / base   dis = theta * base
@@ -172,9 +175,9 @@ void SerialRecvTask() {
           vy = 0;
           vth = 0;
         }
-        // ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r,
-        // distance_left, distance_right, diff_distance);
-        // ROS_INFO("Odom Report: x=%+7.4lf y=%+7.4lf th=%+7.4lf vx=%+7.4lf " \
+        ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r,
+        distance_left, distance_right, diff_distance);
+        //ROS_INFO("Odom Report: x=%+7.4lf y=%+7.4lf th=%+7.4lf vx=%+7.4lf " \
                  "vy=%+7.4lf vth=%+7.4f", x, y, th, vx, vy, vth);
 
         // current_time = ros::Time::now();

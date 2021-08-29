@@ -1,5 +1,5 @@
 <launch>
-        <machine name="jetson-nano" address="192.168.0.23" user="dlinano" password="" env-loader="/opt/ros/melodic/env.sh"/>
+        <machine name="jetson-nano" address="192.168.1.5" user="dlinano" password="" env-loader="/opt/ros/melodic/env.sh"/>
         <!-- low level odom,imu,battery info -->
 	<arg name="server" default="localhost"/>
 	<arg name="ns" default="odom"/>
