@@ -175,8 +175,8 @@ void SerialRecvTask() {
           vy = 0;
           vth = 0;
         }
-        ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r,
-        distance_left, distance_right, diff_distance);
+        //ROS_INFO("acture   l=%d   r=%d   L=%lf   R=%lf   diff=%lf", l, r,
+        //distance_left, distance_right, diff_distance);
         //ROS_INFO("Odom Report: x=%+7.4lf y=%+7.4lf th=%+7.4lf vx=%+7.4lf " \
                  "vy=%+7.4lf vth=%+7.4f", x, y, th, vx, vy, vth);
 
@@ -252,7 +252,9 @@ void SerialRecvTask() {
         imu.linear_acceleration.x = acc[0];
         imu.linear_acceleration.y = acc[1];
         imu.linear_acceleration.z = acc[2];
-        imu.linear_acceleration_covariance[0] = -1;
+        imu.linear_acceleration_covariance[0] = 0;
+	imu.linear_acceleration_covariance[4] = 0;
+	imu.linear_acceleration_covariance[8] = 0;
         pub_imu.publish(imu);
         //ROS_INFO("%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf\t%+7.4lf %+7.4lf %+7.4lf %+7.4lf", \
 		gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], q[0], q[1], q[2], q[3]);
