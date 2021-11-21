@@ -14,6 +14,7 @@
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/BatteryState.h>
 #include <std_msgs/Float64.h>
 
 // send the excepted number of pulses of the left&right wheel
@@ -44,7 +45,7 @@ ros::Subscriber vel_sub;
 ros::Publisher pub_poly;
 ros::Publisher pub_odom;
 ros::Publisher pub_imu;
-ros::Publisher pub_voltage;
+ros::Publisher pub_battery;
 
 void CmdVelCallback(const geometry_msgs::Twist &twist_aux) {
   double linear_speed = twist_aux.linear.x;
@@ -125,6 +126,7 @@ void SerialRecvTask() {
   tf::TransformBroadcaster odom_broadcaster;
   sensor_msgs::Imu imu;
   std_msgs::Float64 vol;
+  sensor_msgs::BatteryState battery;
 
   while (ros::ok()) {
     memset(recv_buf, 0, sizeof(recv_buf));
@@ -217,9 +219,12 @@ void SerialRecvTask() {
         break;
       case 'B':
         sscanf(recv_buf, "B%d\n", &voltage);
-        ROS_INFO("Voltage Report: %.2fV\n", voltage / 100.0);
-        vol.data = voltage/100.0;
-        pub_voltage.publish(vol);
+        current_time = ros::Time::now();
+        battery.header.stamp = current_time;
+        battery.voltage = voltage/100.0;
+        battery.percentage = (voltage/100.0-9.0) / (12.6-9.0);
+        battery.design_capacity = 10; // 10 Ah
+        pub_battery.publish(battery);
         break;
       case 'I':
         gyro[0] = *(float *)(recv_buf + 1 + 0);
@@ -301,7 +306,7 @@ int main(int argc, char **argv) {
   pub_odom = n.advertise<nav_msgs::Odometry>("/odom", 20);
   pub_poly = n.advertise<geometry_msgs::PolygonStamped>("/polygon", 20);
   pub_imu = n.advertise<sensor_msgs::Imu>("/imu_data", 20);
-  pub_voltage = n.advertise<std_msgs::Float64>("/voltage", 1);
+  pub_battery = n.advertise<sensor_msgs::BatteryState>("/battery", 1);
   vel_sub = n.subscribe("/cmd_vel", 10, CmdVelCallback);
 
   std::thread recv_task = std::thread(std::bind(SerialRecvTask));
